@@ -1,0 +1,189 @@
+--- 
+groups: 
+  - 
+    name: couchbase alerting
+    rules: 
+      - expr: "count(cbnode_healthy) by (instance)"
+        record: "couchbase::node_count"
+      - alert: CouchbaseDown
+        annotations: 
+          summary: "Couchbase is down"
+        expr: "up{job=\"couchbasedb\"} == 0"
+        for: 1m
+        labels: 
+          page: "true"
+          severity: critical
+      - alert: CouchbaseNodeNotHealthy
+        annotations: 
+          summary: "Node {{ $labels.node }} is not healthy, you may want to fail it over"
+        expr: "cbnode_healthy == 0"
+        for: 1m
+        labels: 
+          page: "true"
+          severity: critical
+      - alert: CouchbaseTooFragmented
+        annotations: 
+          summary: "{{ $labels.bucket }}: too fragmented ({{ $value | printf \"%.2f\" }}%)"
+        expr: "cbbucketstat_couch_docs_fragmentation > 30 and cbtask_compacting_progress == 0"
+        for: 10m
+        labels: 
+          severity: warning
+      - alert: CouchbaseRebalanceStarted
+        annotations: 
+          summary: "A rebalance just started"
+        expr: "increase(cbnode_rebalance_start[5m]) > 0"
+        for: 1s
+        labels: 
+          severity: info
+      - alert: CouchbaseRebalanceSuccess
+        annotations: 
+          summary: "A rebalance just successfully finished"
+        expr: "increase(cbnode_rebalance_success[5m]) > 0"
+        for: 1s
+        labels: 
+          severity: info
+      - alert: CouchbaseRebalanceStopped
+        annotations: 
+          summary: "A rebalance was stopped"
+        expr: "increase(cbnode_rebalance_stop[5m]) > 0"
+        for: 1s
+        labels: 
+          severity: info
+      - alert: CouchbaseRebalanceFailed
+        annotations: 
+          summary: "A rebalance just failed"
+        expr: "increase(cbnode_rebalance_failure[5m]) > 0"
+        for: 1s
+        labels: 
+          severity: warning
+      - alert: CouchbaseFailover
+        annotations: 
+          summary: "A node has been failover has started"
+        expr: "increase(cbnode_failover[5m]) > 0"
+        for: 1s
+        labels: 
+          severity: warning
+      - alert: CouchbaseFailoverComplete
+        annotations: 
+          summary: "A node has been failover has been completed"
+        expr: "increase(cbnode_failover_complete[5m]) > 0"
+        for: 1s
+        labels: 
+          severity: info
+      - alert: CouchbaseFailoverIncomplete
+        annotations: 
+          summary: "A node has been failover failed"
+        expr: "increase(cbnode_failover_incomplete[5m]) > 0"
+        for: 1s
+        labels: 
+          page: "true"
+          severity: critical
+      - alert: CouchbaseQuotaUsageHigh
+        annotations: 
+          summary: "Couchbase quota usage for {{ $labels.bucket }} is {{ $value | printf \"%.2f\" }}%"
+        expr: "cbbucketinfo_basic_quota_user_percent > 85"
+        for: 15m
+        labels: 
+          severity: critical
+      - alert: CouchbaseHardOutOfMemoryErrors
+        annotations: 
+          summary: "{{ $labels.bucket }}: Hard out of memory error"
+        expr: "increase(cbbucketstat_ep_oom_errors[5m]) > 0"
+        for: 1m
+        labels: 
+          severity: critical
+      - alert: CouchbaseDiskUsageIncreasing
+        annotations: 
+          summary: "Disk usage increased more than 1tb in the last 24h"
+        expr: "sum by (instance) (cbbucketinfo_basic_diskused_bytes) - sum by (instance) (cbbucketinfo_basic_diskused_bytes offset 1d) > 1E+11"
+        for: 15s
+        labels: 
+          severity: info
+      - alert: CouchbaseDiskUsageDecreasing
+        annotations: 
+          summary: "Disk usage decreased more than 1tb in the last 24h"
+        expr: "sum by (instance) (cbbucketinfo_basic_diskused_bytes offset 1d) - sum by (instance) (cbbucketinfo_basic_diskused_bytes) > 1E+11"
+        for: 1s
+        labels: 
+          severity: info
+      - alert: CouchbaseLowResidentRatio
+        annotations: 
+          summary: "{{ $labels.bucket }}: resident ratio is {{ $value | printf \"%.2f\" }}%"
+        expr: 'cbbucketstat_vbuckets_active_resident_items_ratio{bucket!="timeseries"} < 20 OR cbbucketstat_vbuckets_active_resident_items_ratio{bucket="timeseries"} < 0.75'
+        for: 1m
+        labels: 
+          severity: warning
+      - alert: CouchbaseHighCacheMissRate
+        annotations: 
+          summary: "{{ $labels.bucket }}: cache miss rate is {{ $value | printf \"%.2f\" }}%"
+        expr: "cbbucketstat_ep_cache_miss_rate > 50"
+        for: 1m
+        labels: 
+          severity: warning
+      - alert: CouchbaseHighDiskWriteQueue
+        expr: "couchbase_bucket_stats_disk_write_queue > 200"
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.bucket }}: disk write queue is big'
+      - alert: CouchbaseScrapeError
+        annotations: 
+          description: "It may be a problem within the cluster or a bug in the exporter."
+          summary: "Couchbase is failing to scrape {{ $labels.instance }}"
+        expr: "cbbucketinfo_up == 0 OR cbcbas_up == 0 OR cbnode_up == 0 OR cbtask_up == 0"
+        for: 1m
+        labels: 
+          severity: critical
+      - alert: CouchbaseBucketInfoCollectorDown
+        annotations: 
+          summary: "Couchbase Exporter BucketInfo collector is down"
+        expr: "cbbucketinfo_up==0"
+        labels: 
+          severity: critical
+      - alert: CouchbaseBucketStatCollectorDown
+        annotations: 
+          summary: "Couchbase Exporter BucketStats collector is down"
+        expr: "cbbucketstat_up==0"
+        labels: 
+          severity: info
+      - alert: CouchbaseNodeCollectorDown
+        annotations: 
+          summary: "Couchbase Exporter Node collector is down"
+        expr: "cbnode_up==0"
+        labels: 
+          severity: info
+      - alert: CouchbaseTaskCollectorDown
+        annotations: 
+          summary: "Couchbase Exporter Task collector is down"
+        expr: "cbtask_up==0"
+        labels: 
+          severity: info
+      - alert: CouchbaseNodeFailover
+        annotations: 
+          description: "Couchbase cluster suffers from a failover. Please check cluster state."
+          summary: "Couchbase cluster failover"
+        expr: "cbnode_failover - avg_over_time(cbnode_failover[1m]) > 0"
+        labels: 
+          severity: critical
+      - alert: CouchbaseBucketCommitFailed
+        annotations: 
+          description: "A failure occured when committing data to disk for bucket {{ $labels.bucket }}."
+          summary: "Couchbase bucket commit failed"
+        expr: "cbbucketstat_ep_item_commit_failed > 0"
+        labels: 
+          severity: warning
+      - alert: CouchbaseRebalanceFailed
+        annotations: 
+          description: "Couchbase cluster suffers from a failover. Please check cluster state."
+          summary: "Couchbase cluster failover"
+        expr: "cbnode_rebalance_failure - avg_over_time(cbnode_rebalance_failure[1m]) > 0"
+        labels: 
+          severity: critical
+      - alert: CouchbaseNodeCluster_Membership
+        annotations: 
+          description: "Node {{ $labels.instance }} is out of the cluster."
+          summary: "Couchbase node cluster membership"
+        expr: "cbnode_cluster_membership == 0"
+        labels: 
+          severity: critical

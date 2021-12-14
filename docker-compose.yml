@@ -1,0 +1,101 @@
+version: '3.1'
+
+services:
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./config:/prometheus
+      - ./data/prometheus:/data
+    command:
+      - '--config.file=/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/data'
+    ports:
+      - 9090:9090
+    depends_on:
+      - alertmanager
+    restart: always
+    networks:
+      - promnet
+      - dbnet
+
+  alertmanager:
+    image: prom/alertmanager
+    volumes:
+      - ./config:/prometheus
+      - ./data/alertmanager:/data
+    command:
+      - '--config.file=/prometheus/alertmanager.yml'
+      - '--storage.path=/data'
+    ports:
+      - 9093:9093
+    networks:
+      - promnet
+      
+  grafana:
+    image: grafana/grafana
+    ports:
+      - 3000:3000
+    depends_on:
+      - prometheus
+    restart: always
+    networks:
+      - promnet
+
+
+  node:
+    image: prom/node-exporter
+    ports:
+      - 9100:9100
+    restart: always
+    networks:
+      - promnet
+
+  cadvisor:
+    image: google/cadvisor
+    ports:
+      - 8081:8081
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - promnet
+
+  collectd:
+    image: prom/collectd-exporter
+    ports:
+      - 9103:9103
+    restart: always
+    networks:
+      - promnet
+
+  couchbasedb1:
+    image: couchbase/server:community-6.5.1
+    ports:
+      - 8091-8094:8091-8094
+      - 11210-11211:11210-11211
+      - 18091-18093:18091-18093
+    volumes:
+      - ./data/couchbase1:/data/db
+    restart: always
+    networks:
+      - dbnet
+
+  couchbase-exporter:
+      image: couchbase/exporter
+      command:
+      - '-couchbase-address=couchbasedb1'
+      ports:
+        - 9091:9091
+      depends_on:
+        - couchbasedb1
+      restart: always
+      networks:
+        - promnet
+        - dbnet
+networks:
+  promnet:
+    driver: bridge
+  dbnet:
+    driver: bridge
